@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package auction;
+option go_package = "../skrr";
+
+
+service Auction {
+    rpc Result (Void) returns (Outcome);
+    rpc Bid (BidMessage) returns (Ack);
+    rpc BackUp (BackUpMessage) returns (Ack);
+}
+
+message BidMessage{
+    int32 Amount = 1;
+    int32 BidderID = 2;
+}
+
+message Void{
+
+}
+
+message Outcome {
+    int32 HighestBid = 1;
+    bool isOver = 2;
+    int32 bidderId = 3;
+}
+
+message BackUpMessage{
+    int32 HighestBid = 1;
+    int32 HighestBidderID = 2;   
+    repeated int32 Bidders = 3;
+}
+
+message Ack {
+    string Output = 1;
+}
