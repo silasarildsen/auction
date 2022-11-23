@@ -25,6 +25,10 @@ type AuctionClient interface {
 	Result(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Outcome, error)
 	Bid(ctx context.Context, in *BidMessage, opts ...grpc.CallOption) (*Ack, error)
 	BackUp(ctx context.Context, in *BackUpMessage, opts ...grpc.CallOption) (*Ack, error)
+	Ping(ctx context.Context, in *PingMessage, opts ...grpc.CallOption) (*Ack, error)
+	// front-end methods
+	GetPrimary(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ElectionResultMessage, error)
+	CheckHeartbeat(ctx context.Context, in *Void, opts ...grpc.CallOption) (Auction_CheckHeartbeatClient, error)
 }
 
 type auctionClient struct {
@@ -62,6 +66,56 @@ func (c *auctionClient) BackUp(ctx context.Context, in *BackUpMessage, opts ...g
 	return out, nil
 }
 
+func (c *auctionClient) Ping(ctx context.Context, in *PingMessage, opts ...grpc.CallOption) (*Ack, error) {
+	out := new(Ack)
+	err := c.cc.Invoke(ctx, "/auction.Auction/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *auctionClient) GetPrimary(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ElectionResultMessage, error) {
+	out := new(ElectionResultMessage)
+	err := c.cc.Invoke(ctx, "/auction.Auction/GetPrimary", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *auctionClient) CheckHeartbeat(ctx context.Context, in *Void, opts ...grpc.CallOption) (Auction_CheckHeartbeatClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Auction_ServiceDesc.Streams[0], "/auction.Auction/CheckHeartbeat", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &auctionCheckHeartbeatClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Auction_CheckHeartbeatClient interface {
+	Recv() (*PingMessage, error)
+	grpc.ClientStream
+}
+
+type auctionCheckHeartbeatClient struct {
+	grpc.ClientStream
+}
+
+func (x *auctionCheckHeartbeatClient) Recv() (*PingMessage, error) {
+	m := new(PingMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // AuctionServer is the server API for Auction service.
 // All implementations must embed UnimplementedAuctionServer
 // for forward compatibility
@@ -69,6 +123,10 @@ type AuctionServer interface {
 	Result(context.Context, *Void) (*Outcome, error)
 	Bid(context.Context, *BidMessage) (*Ack, error)
 	BackUp(context.Context, *BackUpMessage) (*Ack, error)
+	Ping(context.Context, *PingMessage) (*Ack, error)
+	// front-end methods
+	GetPrimary(context.Context, *Void) (*ElectionResultMessage, error)
+	CheckHeartbeat(*Void, Auction_CheckHeartbeatServer) error
 	mustEmbedUnimplementedAuctionServer()
 }
 
@@ -84,6 +142,15 @@ func (UnimplementedAuctionServer) Bid(context.Context, *BidMessage) (*Ack, error
 }
 func (UnimplementedAuctionServer) BackUp(context.Context, *BackUpMessage) (*Ack, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BackUp not implemented")
+}
+func (UnimplementedAuctionServer) Ping(context.Context, *PingMessage) (*Ack, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedAuctionServer) GetPrimary(context.Context, *Void) (*ElectionResultMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPrimary not implemented")
+}
+func (UnimplementedAuctionServer) CheckHeartbeat(*Void, Auction_CheckHeartbeatServer) error {
+	return status.Errorf(codes.Unimplemented, "method CheckHeartbeat not implemented")
 }
 func (UnimplementedAuctionServer) mustEmbedUnimplementedAuctionServer() {}
 
@@ -152,6 +219,63 @@ func _Auction_BackUp_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Auction_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuctionServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auction.Auction/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuctionServer).Ping(ctx, req.(*PingMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Auction_GetPrimary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuctionServer).GetPrimary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auction.Auction/GetPrimary",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuctionServer).GetPrimary(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Auction_CheckHeartbeat_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Void)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AuctionServer).CheckHeartbeat(m, &auctionCheckHeartbeatServer{stream})
+}
+
+type Auction_CheckHeartbeatServer interface {
+	Send(*PingMessage) error
+	grpc.ServerStream
+}
+
+type auctionCheckHeartbeatServer struct {
+	grpc.ServerStream
+}
+
+func (x *auctionCheckHeartbeatServer) Send(m *PingMessage) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Auction_ServiceDesc is the grpc.ServiceDesc for Auction service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -171,7 +295,21 @@ var Auction_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "BackUp",
 			Handler:    _Auction_BackUp_Handler,
 		},
+		{
+			MethodName: "Ping",
+			Handler:    _Auction_Ping_Handler,
+		},
+		{
+			MethodName: "GetPrimary",
+			Handler:    _Auction_GetPrimary_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CheckHeartbeat",
+			Handler:       _Auction_CheckHeartbeat_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "grpc/interface.proto",
 }

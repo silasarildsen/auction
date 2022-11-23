@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"context"
+
 	"fmt"
 	"log"
 	"net"
@@ -15,9 +15,17 @@ import (
 	"google.golang.org/grpc"
 )
 
+var isFirstPrimary bool // = flag.Bool("first", false, "is this the first primary?")
+
 func main() {
+	//flag.Parse()
+
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
+
+	if len(os.Args) == 3 && os.Args[2] == "first" {
+		isFirstPrimary = true
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -27,6 +35,7 @@ func main() {
 		previousAuctions: make([]auction, 0),
 		peers:            make(map[int32]skrr.AuctionClient),
 		ctx:              ctx,
+		isPrimary:        isFirstPrimary,
 	}
 
 	// Create listener tcp on port ownPort
@@ -61,33 +70,62 @@ func main() {
 		p.peers[port] = c
 	}
 
+	if p.isPrimary {
+		go heartBeat(p)
+		p.currentPrimary = p.id
+	} else {
+		p.lastPing = time.Now()
+		go ListenForHeartBeat(p)
+	}
+
 	for {
+		if !p.isPrimary {
+			time.Sleep(5 * time.Second)
+			log.Printf("Auction ongoing: %t. highest bid: %d, with id: %d",
+				!p.isOver, p.highestBid, p.highestBidderID)
+			continue
+		}
+		log.Printf("Started a new aution!\n")
+
+		// Reset the current auction for the primary and all backups!
+		p.bidders = make([]int32, 0)
+		p.highestBid = 0
+		p.highestBidderID = 0
+		p.isOver = false
+		p.TalkToBoisAndRemoveBadBois(&skrr.BidMessage{
+			Amount:   0,
+			BidderID: 0,
+		}, p.isOver)
+
 		time.Sleep(20 * time.Second)
 
 		p.isOver = true
 
 		p.previousAuctions = append(p.previousAuctions, auction{
 			highestBid: p.highestBid,
-			bidderID: p.highestBidderID,
-			isOver: p.isOver,
+			bidderID:   p.highestBidderID,
+			isOver:     p.isOver,
 		})
 
-		log.Printf("Aution finished. Bidder%d won with a Highest bid: %d",p.highestBidderID, p.highestBid)
+		// Inform backup replicas that the auction is over.
+		// These are the final values!
+		p.TalkToBoisAndRemoveBadBois(&skrr.BidMessage{
+			Amount:   p.highestBid,
+			BidderID: p.highestBidderID,
+		}, p.isOver)
 
-		log.Printf("Starting new auction in %d secc", 10 )
+		log.Printf("Aution finished. Bidder%d won with a Highest bid: %d", p.highestBidderID, p.highestBid)
+
+		log.Printf("Starting new auction in %d sec", 10)
 
 		time.Sleep(10 * time.Second)
-		p.bidders = make([]int32, 0)
-		p.highestBid = 0
-		p.highestBidderID = 0
-		p.isOver = false
 	}
 }
 
 type auction struct {
 	highestBid int32
 	bidderID   int32
-	isOver bool
+	isOver     bool
 }
 
 type peer struct {
@@ -95,20 +133,37 @@ type peer struct {
 	id               int32
 	highestBid       int32
 	highestBidderID  int32
-	isOver			 bool
+	isOver           bool
 	previousAuctions []auction
 	isPrimary        bool
 	peers            map[int32]skrr.AuctionClient
-	bidders			 []int32
+	bidders          []int32
 	ctx              context.Context
+	lastPing         time.Time
+
+	currentPrimary 	 int32
+}
+
+func heartBeat(p *peer) {
+	for {
+		time.Sleep(5 * time.Second)
+		for _, peer := range p.peers {
+			peer.Ping(context.Background(), &skrr.PingMessage{
+				PingerID: int32(p.id),
+			})
+		}
+		fmt.Println("Sent heartbeat")
+	}
 }
 
 func (p *peer) Bid(ctx context.Context, in *skrr.BidMessage) (*skrr.Ack, error) {
 	if !contains(p.bidders, in.BidderID) {
 		p.bidders = append(p.bidders, in.BidderID)
 	}
-	if p.highestBid < int32(in.Amount) && p.TalkToBoisAndRemoveBadBois(*in) {
+	if p.highestBid < int32(in.Amount) && p.TalkToBoisAndRemoveBadBois(in, p.isOver) {
 		p.highestBid = int32(in.Amount)
+		p.highestBidderID = int32(in.BidderID)
+
 		return &skrr.Ack{
 			Output: "successful",
 		}, nil
@@ -120,29 +175,30 @@ func (p *peer) Bid(ctx context.Context, in *skrr.BidMessage) (*skrr.Ack, error) 
 }
 
 func contains(s []int32, e int32) bool {
-    for _, a := range s {
-        if a == e {
-            return true
-        }
-    }
-    return false
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
-func (p *peer) TalkToBoisAndRemoveBadBois(BidMessage skrr.BidMessage) bool {
+func (p *peer) TalkToBoisAndRemoveBadBois(bm *skrr.BidMessage, isOver bool) bool {
 	errs := make([]int32, 0)
 	for port, peer := range p.peers {
-		timeoutctx, cancel := context.WithTimeout(p.ctx, 5*time.Second)
-		defer cancel()
-		_, err := peer.BackUp(timeoutctx, &skrr.BackUpMessage{
-			HighestBid: p.highestBid,
-			Bidders: p.bidders,
-			HighestBidderID: p.highestBidderID,
+		//timeoutctx, cancel := context.WithTimeout(p.ctx, 5*time.Second)
+		//defer cancel()
+		_, err := peer.BackUp(p.ctx, &skrr.BackUpMessage{
+			HighestBid:      bm.Amount,
+			Bidders:         p.bidders,
+			HighestBidderID: bm.BidderID,
+			IsOver:          isOver,
 		})
 		if err != nil {
 			errs = append(errs, port)
 		}
 	}
-	
+
 	if len(errs) > 0 {
 		for _, v := range errs {
 			delete(p.peers, v)
@@ -152,17 +208,69 @@ func (p *peer) TalkToBoisAndRemoveBadBois(BidMessage skrr.BidMessage) bool {
 	return true
 }
 
+func (p *peer) Ping(ctx context.Context, in *skrr.PingMessage) (*skrr.Ack, error) {
+	p.lastPing = time.Now()
+	return &skrr.Ack{Output: "big success"}, nil
+}
+
+func ListenForHeartBeat(p *peer) {
+	for {
+		time.Sleep(5 * time.Second)
+		fmt.Printf("Heartbeat received: %s\n", p.lastPing.Local().String())
+		if time.Since(p.lastPing) > 8*time.Second {
+			fmt.Println("Time for a bully sesh")
+			p.BullyTheBois()
+		}
+
+		if p.isPrimary {
+			return
+		}
+	}
+}
+
+func (p *peer) BullyTheBois() {
+	IAmTheBiggestBoss := true
+	var biggestBoss int32
+
+	for scrubId, _ := range p.peers {
+		if scrubId > biggestBoss{
+			biggestBoss = scrubId
+		}
+		if scrubId > p.id {
+			IAmTheBiggestBoss = false
+		}
+	}
+
+	p.currentPrimary = biggestBoss
+
+	if IAmTheBiggestBoss {
+		p.TalkToBoisAndRemoveBadBois(&skrr.BidMessage{
+			Amount:   p.highestBid,
+			BidderID: p.highestBidderID,
+		}, p.isOver)
+		p.isPrimary = true
+		go heartBeat(p)
+		log.Printf("This: Server %d is now in control! and its heart is beatin!", p.id)
+	}
+}
+
 func (p *peer) Result(ctx context.Context, in *skrr.Void) (*skrr.Outcome, error) {
-	return &skrr.Outcome{HighestBid: p.highestBid, BidderId: p.highestBidderID, IsOver: p.isOver},nil
+	return &skrr.Outcome{HighestBid: p.highestBid, BidderId: p.highestBidderID, IsOver: p.isOver}, nil
 }
 
 func (p *peer) BackUp(ctx context.Context, in *skrr.BackUpMessage) (*skrr.Ack, error) {
 	if !contains(p.bidders, in.HighestBidderID) {
 		p.bidders = append(p.bidders, in.HighestBidderID)
 	}
-	if p.highestBid < int32(in.HighestBid) {
+	fmt.Printf("Backupmsg: %v\n", in)
+	if p.highestBid < int32(in.HighestBid) || in.IsOver || (!in.IsOver && p.isOver) {
 		p.highestBid = int32(in.HighestBid)
 		p.highestBidderID = in.HighestBidderID
+		p.isOver = in.IsOver
 	}
-	return &skrr.Ack{Output: "succes"},nil
+	return &skrr.Ack{Output: "succes"}, nil
+}
+
+func (p *peer) GetPrimary(ctx context.Context, in *skrr.Void) (*skrr.ElectionResultMessage, error) {
+	return &skrr.ElectionResultMessage{PrimaryServerPort: p.currentPrimary}, nil
 }

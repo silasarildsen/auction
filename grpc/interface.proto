@@ -3,11 +3,23 @@ syntax = "proto3";
 package auction;
 option go_package = "../skrr";
 
-
 service Auction {
     rpc Result (Void) returns (Outcome);
     rpc Bid (BidMessage) returns (Ack);
     rpc BackUp (BackUpMessage) returns (Ack);
+    rpc Ping (PingMessage) returns (Ack);
+
+    // front-end methods
+    rpc GetPrimary (Void) returns (ElectionResultMessage);
+    rpc CheckHeartbeat (Void) returns (stream PingMessage);
+}
+
+message ElectionResultMessage{
+    int32 PrimaryServerPort = 1;
+}
+
+message PingMessage{
+    int32 PingerID = 1;
 }
 
 message BidMessage{
@@ -29,6 +41,7 @@ message BackUpMessage{
     int32 HighestBid = 1;
     int32 HighestBidderID = 2;   
     repeated int32 Bidders = 3;
+    bool isOver = 4;
 }
 
 message Ack {
