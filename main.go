@@ -275,11 +275,21 @@ func (p *peer) BullyTheBois() {
 }
 
 func (p *peer) Result(ctx context.Context, in *skrr.Void) (*skrr.Outcome, error) {
+	var timeLeft string
+
+	if !p.isOver {
+		// calculating time left of the current ongoing auction.
+		timeLeft = time.Until(p.auctionStart.Add(20 * time.Second)).String()
+	} else {
+		// calculating time until the next auction
+		timeLeft = time.Until(p.auctionStart.Add(30 * time.Second)).String()
+	}
+	
 	return &skrr.Outcome{
 		HighestBid: p.highestBid, 
 		BidderId: p.highestBidderID, 
 		IsOver: p.isOver,
-		TimeLeft: p.auctionStart.Add(20 * time.Second).Sub(time.Now()).String() }, nil
+		TimeLeft: timeLeft }, nil
 }
 
 func (p *peer) BackUp(ctx context.Context, in *skrr.BackUpMessage) (*skrr.Ack, error) {
