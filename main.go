@@ -94,7 +94,7 @@ func main() {
 		p.isOver = false
 		p.TalkToBoisAndRemoveBadBois(&skrr.BidMessage{
 			Amount:   0,
-			BidderID: 0,
+			BidderID: 0,			
 		}, p.isOver)
 
 		time.Sleep(20 * time.Second)
@@ -157,6 +157,8 @@ func heartBeat(p *peer) {
 }
 
 func (p *peer) Bid(ctx context.Context, in *skrr.BidMessage) (*skrr.Ack, error) {
+	log.Printf("Received bid from %d, bid: %d", in.BidderID, in.Amount)
+
 	if !contains(p.bidders, in.BidderID) {
 		p.bidders = append(p.bidders, in.BidderID)
 	}
@@ -193,6 +195,7 @@ func (p *peer) TalkToBoisAndRemoveBadBois(bm *skrr.BidMessage, isOver bool) bool
 			Bidders:         p.bidders,
 			HighestBidderID: bm.BidderID,
 			IsOver:          isOver,
+			PrimaryId: 		 p.id,
 		})
 		if err != nil {
 			errs = append(errs, port)
@@ -272,5 +275,14 @@ func (p *peer) BackUp(ctx context.Context, in *skrr.BackUpMessage) (*skrr.Ack, e
 }
 
 func (p *peer) GetPrimary(ctx context.Context, in *skrr.Void) (*skrr.ElectionResultMessage, error) {
-	return &skrr.ElectionResultMessage{PrimaryServerPort: p.currentPrimary}, nil
+	return &skrr.ElectionResultMessage{
+		PrimaryServerPort: p.currentPrimary,
+		}, nil
+}
+
+func (p *peer) CheckHeartbeat(in *skrr.Void, stream skrr.Auction_CheckHeartbeatServer) error {
+	for {
+		stream.Send(&skrr.PingMessage{PingerID: p.id})
+		time.Sleep(1 * time.Second)
+	}
 }

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"math/rand"
+	
 	"os"
 	"regexp"
 	skrr "skrr/grpc"
@@ -39,12 +39,13 @@ func main() {
 
 	// connect our "frontend" to the replicas
 	for i := 5000; i <= 5002; i++ {
-		s, sConn := ConnectToServer(*serverPort)
+		s, sConn := ConnectToServer(i)
 		if i == *serverPort {
 			server = s
 			serverConn = sConn
 		}
 		front.replicas[int32(i)] = s
+		fmt.Println(s.GetPrimary(context.Background(), &skrr.Void{}))
 	}
 	go ListenToServerHeartBeat()
 
@@ -56,18 +57,20 @@ func ListenToServerHeartBeat() {
 	lastBeat := time.Now()
 
 	for {
-		stream.Recv()
+		_, err := stream.Recv()
+		
+		//log.Println("received heartbeat")
 
-		if time.Since(lastBeat) > 8*time.Second {
-			replicas := front.replicas
-
-			res, _ := replicas[int32(rand.Intn(2)+5000)].GetPrimary(context.Background(), &skrr.Void{})
-			server = replicas[int32(res.PrimaryServerPort)]
+		if time.Since(lastBeat) > 10*time.Second{
+			res, _ := front.replicas[int32(5001)].GetPrimary(context.Background(), &skrr.Void{})
+			fmt.Printf("New Primary port: %d", res.PrimaryServerPort)
+			server = front.replicas[int32(res.PrimaryServerPort)]
 			stream, _ = server.CheckHeartbeat(context.Background(), &skrr.Void{})
 		}
-		lastBeat = time.Now()
+		if err == nil {
+			lastBeat = time.Now()
+		}
 	}
-
 }
 
 func listen() {

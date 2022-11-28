@@ -42,6 +42,7 @@ message BackUpMessage{
     int32 HighestBidderID = 2;   
     repeated int32 Bidders = 3;
     bool isOver = 4;
+    int32 primaryId = 5;
 }
 
 message Ack {
