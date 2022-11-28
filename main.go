@@ -279,7 +279,7 @@ func (p *peer) Result(ctx context.Context, in *skrr.Void) (*skrr.Outcome, error)
 		HighestBid: p.highestBid, 
 		BidderId: p.highestBidderID, 
 		IsOver: p.isOver,
-		TimeLeft: p.auctionStart.Add(20 * time.second).Sub(time.Now()) }, nil
+		TimeLeft: p.auctionStart.Add(20 * time.Second).Sub(time.Now()).String() }, nil
 }
 
 func (p *peer) BackUp(ctx context.Context, in *skrr.BackUpMessage) (*skrr.Ack, error) {
