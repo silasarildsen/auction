@@ -33,8 +33,9 @@ message Void{
 
 message Outcome {
     int32 HighestBid = 1;
-    bool isOver = 2;
-    int32 bidderId = 3;
+    bool IsOver = 2;
+    int32 BidderId = 3;
+    string TimeLeft = 4;
 }
 
 message BackUpMessage{

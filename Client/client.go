@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	
+
 	"os"
 	"regexp"
 	skrr "skrr/grpc"
@@ -58,10 +58,10 @@ func ListenToServerHeartBeat() {
 
 	for {
 		_, err := stream.Recv()
-		
+
 		//log.Println("received heartbeat")
 
-		if time.Since(lastBeat) > 10*time.Second{
+		if time.Since(lastBeat) > 10*time.Second {
 			res, _ := front.replicas[int32(5001)].GetPrimary(context.Background(), &skrr.Void{})
 			fmt.Printf("New Primary port: %d", res.PrimaryServerPort)
 			server = front.replicas[int32(res.PrimaryServerPort)]
@@ -93,12 +93,16 @@ func bid(bidAmount int) {
 		BidderID: int32(*clientId),
 	})
 	if res.Output == "successful" {
-		//log.Printf("Client: %d now has the highest bid", *clientId)
+		log.Printf("Client %d, succesfully made a new highest bid", *clientId)
 		fmt.Printf("Client %d, Congratz you are now the highest bidder\r\n", *clientId)
 	} else if res.Output == "failure" {
-		//log.Printf("Client: %d now has the highest bid", *clientId)
-		fmt.Printf("Client %d, Something went wrong, you may want to ask for the current highest bid\r\n", *clientId)
+		log.Printf("Client %d bid too low", *clientId)
+		fmt.Printf("Your bid was too low\n", *clientId)
+	}else if res.Output == "exception" {
+		log.Printf("Client %d had something go wrong", *clientId)
+		fmt.Printf("Client %d, Something went wrong\r\n", *clientId)
 	}
+
 }
 
 func result() {
@@ -108,8 +112,10 @@ func result() {
 	}
 	if result.IsOver {
 		log.Printf("Auction has ended with result: %d by BidderID: %d\r\n", result.HighestBid, result.BidderId)
+		fmt.Printf("Auction has ended with result: %d by BidderID: %d\r\n", result.HighestBid, result.BidderId)
 	} else {
-		log.Printf("Auction is ongoing with current highest bid: %d by BidderID: %d\r\n", result.HighestBid, result.BidderId)
+		log.Printf("Auction is ongoing with current highest bid: %d by BidderID: %d. Time left: %s\r\n", result.HighestBid, result.BidderId, result.TimeLeft)
+		fmt.Printf("Auction is ongoing with current highest bid: %d by BidderID: %d\r\n", result.HighestBid, result.BidderId)
 	}
 }
 

@@ -19,6 +19,13 @@ var isFirstPrimary bool // = flag.Bool("first", false, "is this the first primar
 
 func main() {
 	//flag.Parse()
+	
+	f, err := os.OpenFile("output.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+    if err != nil {
+        log.Fatalf("error opening file: %v", err)
+    }
+    defer f.Close()
+    log.SetOutput(f)
 
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
@@ -86,6 +93,7 @@ func main() {
 			continue
 		}
 		log.Printf("Started a new aution!\n")
+		fmt.Println("Started a new aution!")
 
 		// Reset the current auction for the primary and all backups!
 		p.bidders = make([]int32, 0)
@@ -96,7 +104,8 @@ func main() {
 			Amount:   0,
 			BidderID: 0,			
 		}, p.isOver)
-
+		
+		p.auctionStart = time.Now()
 		time.Sleep(20 * time.Second)
 
 		p.isOver = true
@@ -141,6 +150,7 @@ type peer struct {
 	ctx              context.Context
 	lastPing         time.Time
 
+	auctionStart 	 time.Time
 	currentPrimary 	 int32
 }
 
@@ -169,9 +179,13 @@ func (p *peer) Bid(ctx context.Context, in *skrr.BidMessage) (*skrr.Ack, error) 
 		return &skrr.Ack{
 			Output: "successful",
 		}, nil
-	} else {
+	} else if p.highestBid >= int32(in.Amount) {
 		return &skrr.Ack{
 			Output: "failure",
+		},nil
+	} else {
+		return &skrr.Ack{
+			Output: "exception",
 		}, nil
 	}
 }
@@ -205,6 +219,7 @@ func (p *peer) TalkToBoisAndRemoveBadBois(bm *skrr.BidMessage, isOver bool) bool
 	if len(errs) > 0 {
 		for _, v := range errs {
 			delete(p.peers, v)
+			log.Printf("Removed Inactive backup with id: %d\n", v)
 		}
 		return false
 	}
@@ -221,7 +236,8 @@ func ListenForHeartBeat(p *peer) {
 		time.Sleep(5 * time.Second)
 		fmt.Printf("Heartbeat received: %s\n", p.lastPing.Local().String())
 		if time.Since(p.lastPing) > 8*time.Second {
-			fmt.Println("Time for a bully sesh")
+			log.Println("Primary died :( Time for a bully sesh")
+			fmt.Println("Bully time")
 			p.BullyTheBois()
 		}
 
@@ -254,11 +270,16 @@ func (p *peer) BullyTheBois() {
 		p.isPrimary = true
 		go heartBeat(p)
 		log.Printf("This: Server %d is now in control! and its heart is beatin!", p.id)
+		fmt.Printf("This: Server %d is now in control! and its heart is beatin!\n", p.id)
 	}
 }
 
 func (p *peer) Result(ctx context.Context, in *skrr.Void) (*skrr.Outcome, error) {
-	return &skrr.Outcome{HighestBid: p.highestBid, BidderId: p.highestBidderID, IsOver: p.isOver}, nil
+	return &skrr.Outcome{
+		HighestBid: p.highestBid, 
+		BidderId: p.highestBidderID, 
+		IsOver: p.isOver,
+		TimeLeft: p.auctionStart.Add(20 * time.second).Sub(time.Now()) }, nil
 }
 
 func (p *peer) BackUp(ctx context.Context, in *skrr.BackUpMessage) (*skrr.Ack, error) {
