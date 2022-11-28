@@ -3,10 +3,11 @@
 ## How to start
 
 1. Run the passive replication by starting replica nodes using ```go run . x```
-   1. Note: this implementation doesn't use flags. The first argument following the ., is the id of the replica. We have hardcoded the system to work for 3 replicas.
+   1. This implementation doesn't use flags. The first argument following the ., is the id of the replica.
       1. ```go run . 0 first```
       2. ```go run . 1```
       3. `go run . 2`
+      4. We have hardcoded the system to work for 3 replicas. So, the only 3 ids that will work are 0,1,2.
    2. One node has to be marked as the first primary replica. This is marked as an argument following the *x* using a ```first```
       1. ```go run . x first```
 2. Run auction clients using `go run Client/client.go`

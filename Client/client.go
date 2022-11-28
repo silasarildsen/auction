@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"flag"
+	"math/rand"
 
 	"os"
 	"regexp"
@@ -62,7 +63,7 @@ func ListenToServerHeartBeat() {
 		//log.Println("received heartbeat")
 
 		if time.Since(lastBeat) > 10*time.Second {
-			res, _ := front.replicas[int32(5001)].GetPrimary(context.Background(), &skrr.Void{})
+			res, _ := front.replicas[5001 + rand.Int31n(2)].GetPrimary(context.Background(), &skrr.Void{})
 			fmt.Printf("New Primary port: %d", res.PrimaryServerPort)
 			server = front.replicas[int32(res.PrimaryServerPort)]
 			stream, _ = server.CheckHeartbeat(context.Background(), &skrr.Void{})

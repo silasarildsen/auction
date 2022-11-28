@@ -228,6 +228,10 @@ func (p *peer) TalkToBoisAndRemoveBadBois(bm *skrr.BidMessage, isOver bool) bool
 
 func (p *peer) Ping(ctx context.Context, in *skrr.PingMessage) (*skrr.Ack, error) {
 	p.lastPing = time.Now()
+
+	// if the first primary isn't set to serverid = 0, meaning it is not on port 5000.
+	delete(p.peers, in.PingerID)
+
 	return &skrr.Ack{Output: "big success"}, nil
 }
 
