@@ -1,0 +1,31 @@
+2022/11/28 17:09:59 Replica5000: Started a new aution!
+2022/11/28 17:10:04 Replica5001: Auction ongoing: true. highest bid: 0, with id: 0
+2022/11/28 17:10:05 Replica5002: Auction ongoing: true. highest bid: 0, with id: 0
+2022/11/28 17:10:09 Replica5000: Received bid from 1, bid: 120
+2022/11/28 17:10:09 Replica5001: Auction ongoing: true. highest bid: 120, with id: 1
+2022/11/28 17:10:10 Replica5002: Auction ongoing: true. highest bid: 120, with id: 1
+2022/11/28 17:10:14 Replica5001: Auction ongoing: true. highest bid: 120, with id: 1
+2022/11/28 17:10:14 Replica5000: Received bid from 2, bid: 135
+2022/11/28 17:10:15 Replica5002: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:19 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:20 Replica5002: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:24 Primary died :( Time for a bully sesh
+2022/11/28 17:10:24 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:25 Replica5002: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:25 Primary died :( Time for a bully sesh
+2022/11/28 17:10:27 Replica5002: Removed Inactive backup with id: 5000
+2022/11/28 17:10:27 Server 5002 is now in control! and its heart is beatin!
+2022/11/28 17:10:29 Primary died :( Time for a bully sesh
+2022/11/28 17:10:29 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:30 Replica5002: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:30 Replica5002: Started a new aution!
+2022/11/28 17:10:34 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:35 Replica5002: Received bid from 1, bid: 123
+2022/11/28 17:10:39 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:44 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:47 Replica5002: Received bid from 2, bid: 135
+2022/11/28 17:10:49 Replica5001: Auction ongoing: true. highest bid: 135, with id: 2
+2022/11/28 17:10:50 Replica5002: Aution finished. Bidder2 won with a Highest bid: 135
+2022/11/28 17:10:50 Replica5002: Starting new auction in 10 sec
+2022/11/28 17:10:52 Replica5002: Received bid from 1, bid: 140
+2022/11/28 17:10:54 Replica5001: Auction ongoing: false. highest bid: 140, with id: 1

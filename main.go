@@ -20,7 +20,7 @@ var isFirstPrimary bool // = flag.Bool("first", false, "is this the first primar
 func main() {
 	//flag.Parse()
 	
-	f, err := os.OpenFile("output.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile("yourveryownoutputfile.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
     if err != nil {
         log.Fatalf("error opening file: %v", err)
     }
@@ -88,11 +88,11 @@ func main() {
 	for {
 		if !p.isPrimary {
 			time.Sleep(5 * time.Second)
-			log.Printf("Auction ongoing: %t. highest bid: %d, with id: %d",
+			log.Printf("Replica%d: Auction ongoing: %t. highest bid: %d, with id: %d", p.id,
 				!p.isOver, p.highestBid, p.highestBidderID)
 			continue
 		}
-		log.Printf("Started a new aution!\n")
+		log.Printf("Replica%d: Started a new aution!\n", p.id)
 		fmt.Println("Started a new aution!")
 
 		// Reset the current auction for the primary and all backups!
@@ -123,9 +123,10 @@ func main() {
 			BidderID: p.highestBidderID,
 		}, p.isOver)
 
-		log.Printf("Aution finished. Bidder%d won with a Highest bid: %d", p.highestBidderID, p.highestBid)
+		log.Printf("Replica%d: Aution finished. Bidder%d won with a Highest bid: %d",p.id, p.highestBidderID, p.highestBid)
+		fmt.Println("auction finished")
 
-		log.Printf("Starting new auction in %d sec", 10)
+		log.Printf("Replica%d: Starting new auction in %d sec", p.id,10)
 
 		time.Sleep(10 * time.Second)
 	}
@@ -167,7 +168,7 @@ func heartBeat(p *peer) {
 }
 
 func (p *peer) Bid(ctx context.Context, in *skrr.BidMessage) (*skrr.Ack, error) {
-	log.Printf("Received bid from %d, bid: %d", in.BidderID, in.Amount)
+	log.Printf("Replica%d: Received bid from %d, bid: %d",p.id, in.BidderID, in.Amount)
 
 	if !contains(p.bidders, in.BidderID) {
 		p.bidders = append(p.bidders, in.BidderID)
@@ -219,7 +220,7 @@ func (p *peer) TalkToBoisAndRemoveBadBois(bm *skrr.BidMessage, isOver bool) bool
 	if len(errs) > 0 {
 		for _, v := range errs {
 			delete(p.peers, v)
-			log.Printf("Removed Inactive backup with id: %d\n", v)
+			log.Printf("Replica%d: Removed Inactive backup with id: %d\n",p.id, v)
 		}
 		return false
 	}
@@ -269,7 +270,7 @@ func (p *peer) BullyTheBois() {
 		}, p.isOver)
 		p.isPrimary = true
 		go heartBeat(p)
-		log.Printf("This: Server %d is now in control! and its heart is beatin!", p.id)
+		log.Printf("Server %d is now in control! and its heart is beatin!", p.id)
 		fmt.Printf("This: Server %d is now in control! and its heart is beatin!\n", p.id)
 	}
 }
